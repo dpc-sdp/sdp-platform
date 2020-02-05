@@ -1,0 +1,120 @@
+version: 2
+aliases:
+
+  # Fingerprint of the key used to access Lagoon environment and private repositories.
+  # The value can be found in CircleCI UI -> SSH Permissions.
+  - &ssh_key_fingerprint "36:03:e3:ca:b3:0b:82:18:e2:e9:ae:5d:81:17:86:b1"
+
+  # Fingerprint of the SSH key for the Deployer user used to push code into repositories.
+  # The value can be found in CircleCI UI -> SSH Permissions.
+  - &deploy_ssh_fingerprint "36:03:e3:ca:b3:0b:82:18:e2:e9:ae:5d:81:17:86:b1"
+
+  - &step_configure_git
+    run:
+      name: Configure git
+      command: |
+        git config --global user.email "$DEPLOY_USER_EMAIL" && git config --global user.name "$DEPLOY_USER_NAME"
+        mkdir -p ~/.ssh/ && echo -e "Host github.com\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+        DEPLOY_SSH_FILE="${DEPLOY_SSH_FINGERPRINT//:}" && DEPLOY_SSH_FILE="id_rsa_${DEPLOY_SSH_FILE//\"}" && ssh-add -D && ssh-add ~/.ssh/$DEPLOY_SSH_FILE
+
+  # Re-usable job to run different types of builds.
+  - &job-build
+    working_directory: &working-directory /app
+    docker:
+      - image: &builder-image integratedexperts/ci-builder
+        environment:
+          SSH_KEY_FINGERPRINT: *ssh_key_fingerprint
+          LAGOON_ENVIRONMENT_TYPE: ci
+    steps:
+      - attach_workspace:
+          at: /workspace
+      - checkout
+      - run: ./dev-tools.sh
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          name: Add GitHub token into container environment variable
+          command: |
+            echo "GITHUB_TOKEN=$GITHUB_TOKEN" >> .env
+      - add_ssh_keys:
+          fingerprints:
+            - *ssh_key_fingerprint
+      - run:
+          name: Add SSH key into container environment variable
+          command: |
+            SSH_KEY_FILE="${SSH_KEY_FINGERPRINT//:}" && SSH_KEY_FILE="id_rsa_${SSH_KEY_FILE//\"}" && export $SSH_KEY_FILE
+            cp ~/.ssh/$SSH_KEY_FILE /app/lagoon_cli.key
+      - run: .circleci/build.sh
+      - run: .circleci/test.sh
+      - run:
+          name: Copy artifacts
+          command: .circleci/test-artifacts.sh
+          when: always
+      - store_artifacts:
+          path: /tmp/artifacts
+
+  # Re-usable job to mirror code.
+  - &job-mirror
+    working_directory: *working-directory
+    docker:
+      - image: *builder-image
+    environment:
+      DEPLOY_SSH_FINGERPRINT: *deploy_ssh_fingerprint
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - *deploy_ssh_fingerprint
+      - *step_configure_git
+      - run: ./dev-tools.sh
+      - run: .circleci/mirror.sh
+
+jobs:
+  build:
+    <<: *job-build
+
+  build-install:
+    <<: *job-build
+    docker:
+      - image: *builder-image
+        environment:
+          SSH_KEY_FINGERPRINT: *ssh_key_fingerprint
+          LAGOON_ENVIRONMENT_TYPE: ci
+          INSTALL_NEW_SITE: 1
+          BEHAT_PROFILE: "--profile=tide"
+
+  push-api:
+    <<: *job-mirror
+    docker:
+      - image: *builder-image
+        environment:
+          MIRROR_GIT_BRANCH: api
+
+  push-api-edge:
+    <<: *job-mirror
+    docker:
+      - image: *builder-image
+        environment:
+          MIRROR_GIT_BRANCH: api-edge
+
+workflows:
+  version: 2
+  main:
+    jobs:
+      - build:
+          filters:
+            branches:
+              ignore: /api|api\-edge/
+      - build-install
+      - push-api:
+          requires:
+            - build-install
+          filters:
+            branches:
+              only: master
+      - push-api-edge:
+          requires:
+            - build-install
+          filters:
+            branches:
+              only: /develop|ci/

@@ -59,6 +59,16 @@ class Plugin implements PluginInterface, EventSubscriberInterface {
 
     $baseDir = dirname(Factory::getComposerFile());
     $directoriesToCopy = [
+      '.' => [
+        '.ahoy.yml' => []
+      ],
+      '.circleci' => [
+        'config.yml' => [],
+        'export-config.sh' => [],
+      ],
+      'scripts' => [
+        'export-config.sh' => [],
+      ],
       'scripts/drupal' => [
         'backup.sh' => ['%%PROJECT_NAME%%' => 'PROJECT_NAME'],
       ],
