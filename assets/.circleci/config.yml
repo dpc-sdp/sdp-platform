@@ -69,7 +69,41 @@ aliases:
       - run: ./dev-tools.sh
       - run: .circleci/mirror.sh
 
+  # Job to perform a partial build and export config.
+  - &job-export-config
+    working_directory: *working-directory
+    docker:
+      - image: *builder-image
+        environment:
+          SSH_KEY_FINGERPRINT: *ssh_key_fingerprint
+          LAGOON_ENVIRONMENT_TYPE: ci
+    steps:
+      - attach_workspace:
+          at: /workspace
+      - checkout
+      - run: ls -la .circleci
+      - run:
+          name: Configure GIT
+          command: |
+            git config --global user.email "$DEPLOY_USER_EMAIL" && git config --global user.name "$DEPLOY_USER_NAME"
+      - run: ./dev-tools.sh
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          name: Add GitHub token into container environment variable
+          command: |
+            echo "GITHUB_TOKEN=$GITHUB_TOKEN" >> .env
+      - add_ssh_keys:
+          fingerprints:
+            - *ssh_key_fingerprint
+      - run:
+          name: Install site and export config
+          command: .circleci/export-config.sh
+
 jobs:
+  export-config:
+    <<: *job-export-config
+
   build:
     <<: *job-build
 
@@ -101,11 +135,18 @@ workflows:
   version: 2
   main:
     jobs:
+      - export-config:
+          filters:
+            branches:
+              only: /^automation\/.*/
       - build:
           filters:
             branches:
-              ignore: /api|api\-edge/
-      - build-install
+              ignore: /api|api\-edge|^automation\/.*/
+      - build-install:
+          filters:
+            branches:
+              ignore: /api|api\-edge|^automation\/.*/
       - push-api:
           requires:
             - build-install
