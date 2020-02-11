@@ -94,6 +94,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface {
         }
         print "Copying $source to $target\n";
         file_put_contents($target, $fileContents);
+        chmod($target, 0755);
       }
     }
 
