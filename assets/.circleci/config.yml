@@ -1,21 +1,19 @@
 version: 2
 aliases:
 
-  # Fingerprint of the key used to access Lagoon environment and private repositories.
+  # Fingerprint of the SSH deploy key of the project used to pull code.
   # The value can be found in CircleCI UI -> SSH Permissions.
-  - &ssh_key_fingerprint "36:03:e3:ca:b3:0b:82:18:e2:e9:ae:5d:81:17:86:b1"
+  - &deploy_ssh_fingerprint "60:10:9b:99:11:cc:c1:99:97:3e:f4:66:ca:d1:96:58"
 
-  # Fingerprint of the SSH key for the Deployer user used to push code into repositories.
+  # Fingerprint of the SSH key for the machine user used to push code into repositories.
   # The value can be found in CircleCI UI -> SSH Permissions.
-  - &deploy_ssh_fingerprint "36:03:e3:ca:b3:0b:82:18:e2:e9:ae:5d:81:17:86:b1"
+  - &user_ssh_fingerprint "bd:ac:32:00:c6:1b:79:e6:00:a2:e8:0c:21:2e:b9:ff"
 
   - &step_configure_git
     run:
       name: Configure git
       command: |
         git config --global user.email "$DEPLOY_USER_EMAIL" && git config --global user.name "$DEPLOY_USER_NAME"
-        mkdir -p ~/.ssh/ && echo -e "Host github.com\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
-        DEPLOY_SSH_FILE="${DEPLOY_SSH_FINGERPRINT//:}" && DEPLOY_SSH_FILE="id_rsa_${DEPLOY_SSH_FILE//\"}" && ssh-add -D && ssh-add ~/.ssh/$DEPLOY_SSH_FILE
 
   # Re-usable job to run different types of builds.
   - &job-build
@@ -23,7 +21,7 @@ aliases:
     docker:
       - image: &builder-image integratedexperts/ci-builder
         environment:
-          SSH_KEY_FINGERPRINT: *ssh_key_fingerprint
+          SSH_KEY_FINGERPRINT: *deploy_ssh_fingerprint
           LAGOON_ENVIRONMENT_TYPE: ci
     steps:
       - attach_workspace:
@@ -36,15 +34,10 @@ aliases:
           name: Add GitHub token into container environment variable
           command: |
             echo "GITHUB_TOKEN=$GITHUB_TOKEN" >> .env
-      - add_ssh_keys:
-          fingerprints:
-            - *ssh_key_fingerprint
       - run:
-          name: Add SSH key into container environment variable
+          name: Run build script
           command: |
-            SSH_KEY_FILE="${SSH_KEY_FINGERPRINT//:}" && SSH_KEY_FILE="id_rsa_${SSH_KEY_FILE//\"}" && export $SSH_KEY_FILE
-            cp ~/.ssh/$SSH_KEY_FILE /app/lagoon_cli.key
-      - run: .circleci/build.sh
+            .circleci/build.sh
       - run: .circleci/test.sh
       - run:
           name: Copy artifacts
@@ -75,27 +68,20 @@ aliases:
     docker:
       - image: *builder-image
         environment:
-          SSH_KEY_FINGERPRINT: *ssh_key_fingerprint
           LAGOON_ENVIRONMENT_TYPE: ci
+          DEPLOY_USER_EMAIL: sdp.devs@dpc.vic.gov.au
+          DEPLOY_USER_NAME: sdpdeploy
     steps:
       - attach_workspace:
           at: /workspace
       - checkout
-      - run: ls -la .circleci
-      - run:
-          name: Configure GIT
-          command: |
-            git config --global user.email "$DEPLOY_USER_EMAIL" && git config --global user.name "$DEPLOY_USER_NAME"
+      - *step_configure_git
       - run: ./dev-tools.sh
       - setup_remote_docker:
           docker_layer_caching: true
-      - run:
-          name: Add GitHub token into container environment variable
-          command: |
-            echo "GITHUB_TOKEN=$GITHUB_TOKEN" >> .env
       - add_ssh_keys:
           fingerprints:
-            - *ssh_key_fingerprint
+            - *user_ssh_fingerprint
       - run:
           name: Install site and export config
           command: .circleci/export-config.sh
@@ -112,7 +98,7 @@ jobs:
     docker:
       - image: *builder-image
         environment:
-          SSH_KEY_FINGERPRINT: *ssh_key_fingerprint
+          SSH_KEY_FINGERPRINT: *deploy_ssh_fingerprint
           LAGOON_ENVIRONMENT_TYPE: ci
           INSTALL_NEW_SITE: 1
           BEHAT_PROFILE: "--profile=tide"
@@ -138,12 +124,12 @@ workflows:
       - export-config:
           filters:
             branches:
-              only: /^automation\/.*/
-      - build:
+              only: ^automation\/
+      - build-install:
           filters:
             branches:
               ignore: /api|api\-edge|^automation\/.*/
-      - build-install:
+      - build:
           filters:
             branches:
               ignore: /api|api\-edge|^automation\/.*/
