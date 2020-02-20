@@ -124,7 +124,7 @@ workflows:
       - export-config:
           filters:
             branches:
-              only: ^automation\/
+              only: /^automation\/.*/
       - build-install:
           filters:
             branches:
