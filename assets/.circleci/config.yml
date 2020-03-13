@@ -3,11 +3,7 @@ aliases:
 
   # Fingerprint of the SSH deploy key of the project used to pull code.
   # The value can be found in CircleCI UI -> SSH Permissions.
-  - &deploy_ssh_fingerprint "60:10:9b:99:11:cc:c1:99:97:3e:f4:66:ca:d1:96:58"
-
-  # Fingerprint of the SSH key for the machine user used to push code into repositories.
-  # The value can be found in CircleCI UI -> SSH Permissions.
-  - &user_ssh_fingerprint "bd:ac:32:00:c6:1b:79:e6:00:a2:e8:0c:21:2e:b9:ff"
+  - &ssh_key_fingerprint "36:03:e3:ca:b3:0b:82:18:e2:e9:ae:5d:81:17:86:b1"
 
   - &step_configure_git
     run:
@@ -21,7 +17,7 @@ aliases:
     docker:
       - image: &builder-image integratedexperts/ci-builder
         environment:
-          SSH_KEY_FINGERPRINT: *deploy_ssh_fingerprint
+          SSH_KEY_FINGERPRINT: *ssh_key_fingerprint
           LAGOON_ENVIRONMENT_TYPE: ci
     steps:
       - attach_workspace:
@@ -34,6 +30,14 @@ aliases:
           name: Add GitHub token into container environment variable
           command: |
             echo "GITHUB_TOKEN=$GITHUB_TOKEN" >> .env
+      - add_ssh_keys:
+          fingerprints:
+            - *ssh_key_fingerprint
+      - run:
+          name: Add SSH key into container environment variable
+          command: |
+            SSH_KEY_FILE="${SSH_KEY_FINGERPRINT//:}" && SSH_KEY_FILE="id_rsa_${SSH_KEY_FILE//\"}" && export $SSH_KEY_FILE
+            cp ~/.ssh/$SSH_KEY_FILE /app/bay_key
       - run:
           name: Run build script
           command: |
@@ -45,22 +49,6 @@ aliases:
           when: always
       - store_artifacts:
           path: /tmp/artifacts
-
-  # Re-usable job to mirror code.
-  - &job-mirror
-    working_directory: *working-directory
-    docker:
-      - image: *builder-image
-    environment:
-      DEPLOY_SSH_FINGERPRINT: *deploy_ssh_fingerprint
-    steps:
-      - checkout
-      - add_ssh_keys:
-          fingerprints:
-            - *deploy_ssh_fingerprint
-      - *step_configure_git
-      - run: ./dev-tools.sh
-      - run: .circleci/mirror.sh
 
   # Job to perform a partial build and export config.
   - &job-export-config
@@ -81,7 +69,7 @@ aliases:
           docker_layer_caching: true
       - add_ssh_keys:
           fingerprints:
-            - *user_ssh_fingerprint
+            - *ssh_key_fingerprint
       - run:
           name: Install site and export config
           command: .circleci/export-config.sh
@@ -98,24 +86,10 @@ jobs:
     docker:
       - image: *builder-image
         environment:
-          SSH_KEY_FINGERPRINT: *deploy_ssh_fingerprint
+          SSH_KEY_FINGERPRINT: *ssh_key_fingerprint
           LAGOON_ENVIRONMENT_TYPE: ci
           INSTALL_NEW_SITE: 1
           BEHAT_PROFILE: "--profile=tide"
-
-  push-api:
-    <<: *job-mirror
-    docker:
-      - image: *builder-image
-        environment:
-          MIRROR_GIT_BRANCH: api
-
-  push-api-edge:
-    <<: *job-mirror
-    docker:
-      - image: *builder-image
-        environment:
-          MIRROR_GIT_BRANCH: api-edge
 
 workflows:
   version: 2
@@ -133,15 +107,3 @@ workflows:
           filters:
             branches:
               ignore: /api|api\-edge|^automation\/.*/
-      - push-api:
-          requires:
-            - build-install
-          filters:
-            branches:
-              only: master
-      - push-api-edge:
-          requires:
-            - build-install
-          filters:
-            branches:
-              only: /develop|ci/
