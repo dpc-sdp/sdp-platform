@@ -1,0 +1,211 @@
+---
+ahoyapi: v2
+
+commands:
+  build:
+    usage: Build or rebuild project.
+    cmd: |
+      ahoy clean \
+      && if [ "$COMPOSER" != "composer.json" ]; then ahoy composer-merge; fi \
+      && if [ "$COMPOSER" != "composer.json" ]; then ahoy link-package; fi \
+      && (docker network prune -f > /dev/null && docker network inspect amazeeio-network > /dev/null || docker network create amazeeio-network) \
+      && ahoy up -- --build --force-recreate \
+      && ahoy install-dev \
+      && if [ "$COMPOSER" != "composer.json" ] && [ "$DRUPAL_PROFILE" ]; then ahoy init-profile; fi \
+      && ahoy install-site \
+      && if [ "$COMPOSER" != "composer.json" ]; then ahoy init-module; fi \
+      && ahoy drush en tide_test -y \
+      && ahoy line "Build complete" \
+      && ahoy info 1
+
+  export-config:
+    usage: Build a project and export config.
+    cmd: |
+      ahoy clean \
+      && (docker network prune -f > /dev/null && docker network inspect amazeeio-network > /dev/null || docker network create amazeeio-network) \
+      && ahoy up -- --build --force-recreate \
+      && ahoy install-dev \
+      && ahoy cli scripts/export-config.sh \
+      && ahoy line "Config export complete"
+
+  info:
+    usage: Print information about this project.
+    cmd: |
+      ahoy line "Site URL              : " ${LOCALDEV_URL}
+      ahoy line "Path to project       : " ${APP}
+      ahoy line "Path to docroot       : " ${APP}/${WEBROOT}
+      ahoy line "DB port on host       : " $(docker port $(docker-compose ps -q mariadb) 3306 | cut -d : -f 2)
+      ahoy line "Mailhog URL           : " http://mailhog.docker.amazee.io/
+      if [ "$1" ]; then
+        ahoy line "One-time login        : " $(ahoy login -- --no-browser)
+      fi
+
+  up:
+    usage: Build and start Docker containers.
+    cmd: |
+      docker-compose up -d "$@" \
+      && ahoy cli "dockerize -wait tcp://mariadb:3306 -timeout 1m" \
+      && if docker-compose logs | grep -q "\[Error\]"; then docker-compose logs; exit 1; fi \
+      && docker ps -a --filter name=^/${COMPOSE_PROJECT_NAME}_ &&
+      # Add Bay SSH key before fetching DB.
+      # During local development, pygmy injects SSH key from the host, so specifying
+      # key as $BAY_KEY environment variable is not required (the host key of every
+      # developer must be added to Bay during project onboarding).
+      if [ "$BAY_KEY" ]; then
+        ahoy cli "mkdir -p /home/.ssh && echo -e \"$BAY_KEY\" > /home/.ssh/key && chmod 600 /home/.ssh/key;"
+      fi
+
+  down:
+    usage: Stop Docker containers and remove container, images, volumes and networks.
+    cmd: docker-compose down --volumes
+
+  start:
+    usage: Start existing Docker containers.
+    cmd: docker-compose start "$@"
+
+  stop:
+    usage: Stop running Docker containers.
+    cmd: docker-compose stop "$@"
+
+  restart:
+    usage: Restart all stopped and running Docker containers.
+    cmd: docker-compose restart
+
+  logs:
+    usage: Show Docker logs.
+    cmd: docker-compose logs "$@"
+
+  pull:
+    usage: Pull latest docker images.
+    cmd: |
+      docker image ls --format \"{{.Repository}}:{{.Tag}}\" | grep singledigital/ | grep -v none | xargs -n1 docker pull | cat \
+      && docker image ls --format \"{{.Repository}}:{{.Tag}}\" | grep amazeeio/ | grep -v none | xargs -n1 docker pull | cat
+
+  cli:
+    usage: Start a shell inside CLI container or run a command.
+    cmd: if \[ "$@" \]; then docker exec -i $(docker-compose ps -q cli) bash -c "$@"; else docker exec -it $(docker-compose ps -q cli) bash; fi
+
+  drush:
+    usage: Run drush commands in the CLI service container.
+    cmd: docker exec -i $(docker-compose ps -q cli) drush -r ${APP}/${WEBROOT} -l ${LOCALDEV_URL} "$@"
+
+  login:
+    usage: Login to a website.
+    cmd: ahoy drush uublk 1 -q && ahoy drush uli "$@" | xargs open
+
+  doctor:
+    usage: Find problems with current project setup.
+    cmd: scripts/doctor.sh
+
+  # @note: Call this on the host before starting containers.
+  composer-merge:
+    usage: Merge composer files.
+    cmd: scripts/composer-merge.sh
+
+  install-dev:
+    usage: Install dependencies.
+    cmd: ahoy cli "composer install -n --ansi --prefer-dist --no-suggest"
+
+  install-site:
+    usage: Install site.
+    cmd: |
+      ahoy flush-redis
+      if [ "$INSTALL_NEW_SITE" == "1" ]; then
+        ahoy cli -- ./scripts/drupal/install-new-site.sh
+      else
+        ahoy cli -- ./scripts/rebuild-env.sh
+      fi
+
+  db-import:
+    usage: Import the production database.
+    cmd: ahoy cli -- ./scripts/rebuild-env.sh
+
+  fix-bay-token:
+    usage: Fix the bay token by re-importing.
+    cmd: |
+      pygmy stop \
+      && sleep 1 \
+      && pygmy start \
+      && docker ps -a | grep Exit | cut -d ' ' -f 1 | xargs docker rm \
+      && docker-compose up -d --force \
+      && pygmy stop \
+      && sleep 1 \
+      && pygmy start
+
+  link-package:
+    usage: Link package from current repository root.
+    cmd: scripts/link-package.sh
+    hide: true
+
+  init-module:
+    usage: Install a module from current repository root.
+    cmd: ahoy cli "INSTALL_SUGGEST=$INSTALL_SUGGEST scripts/drupal-init-module.sh"
+    hide: true
+
+  init-profile:
+    usage: Install a profile from current repository root.
+    cmd: ahoy cli "INSTALL_SUGGEST=$INSTALL_SUGGEST scripts/drupal-init-profile.sh"
+    hide: true
+
+  clean:
+    usage: Remove all build files.
+    cmd: |
+      ahoy down \
+      && ([ -d .git ] && git ls-files --directory --other -i --exclude-from=.gitignore ${WEBROOT} | grep -v "settings.local.php" | grep -v "services.local.yml" | xargs chmod -Rf 777 || true) \
+      && ([ -d .git ] && git ls-files --directory --other -i --exclude-from=.gitignore ${WEBROOT} | grep -v "settings.local.php" | grep -v "services.local.yml" | xargs rm -Rf || true) \
+      && rm -Rf vendor \
+      && rm -Rf screenshots \
+      && rm -Rf composer.build.*
+
+  clean-full:
+    usage: Remove all development files.
+    cmd: |
+      ahoy clean \
+      && ([ -d .git ] && git ls-files --directory --other . | grep -v ".idea" | xargs chmod -Rf 777 || true) \
+      && ([ -d .git ] && git ls-files --directory --other . | grep -v ".idea" | xargs rm -Rf || true)
+
+  deploy:
+    usage: Deploy or re-deploy a branch in Bay.
+    cmd: ./scripts/bay-deploy.sh "$@"
+
+  lint:
+    usage: Lint code.
+    cmd: ahoy cli "vendor/bin/phpcs ${PHPCS_TARGETS}"
+
+  test-behat:
+    usage: Run Behat tests.
+    cmd: ahoy cli "./vendor/bin/behat --strict --colors ${BEHAT_PROFILE} $@"
+
+  flush-redis:
+    usage: Flush Redis cache.
+    cmd: docker exec -i $(docker-compose ps -q redis) redis-cli flushall > /dev/null
+
+  set-dev-tools-commit:
+    usage: Specify a commit of Dev-Tools to downloaded and commit the result.
+    cmd: sed  -i '' 's/.*GH_COMMIT.*/'"export GH_COMMIT=$1"'/' dev-tools.sh
+
+  # Utilities.
+  line:
+    cmd: printf "$(tput -Txterm setaf 2)${1}$(tput -Txterm sgr0)${2}\n"
+    hide: true
+
+entrypoint:
+- bash
+- "-c"
+- |
+  [ -f .env ] && export $(grep -v '^#' .env | xargs) && [ -f .env.local ] && export $(grep -v '^#' .env.local | xargs)
+  export PROJECT_NAME=${PROJECT_NAME:-$(basename $(pwd))}
+  export APP=${APP:-/app}
+  export WEBROOT=${WEBROOT:-docroot}
+  export MYSQL_HOST=${MYSQL_HOST:-mariadb}
+  export MYSQL_PORT=${MYSQL_PORT:-3306}
+  export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-$PROJECT_NAME}
+  export LOCALDEV_URL=${LOCALDEV_URL:-http://${PROJECT_NAME/[_ ]/-}.docker.amazee.io}
+  export COMPOSER=${COMPOSER:-composer.json}
+  export DRUPAL_PROFILE=${DRUPAL_PROFILE:-}
+  export DRUPAL_MODULE_PREFIX=${DRUPAL_MODULE_PREFIX:-mysite}
+  PHPCS_TARGETS=${PHPCS_TARGETS:-.} && export PHPCS_TARGETS=${PHPCS_TARGETS//,/ }
+  if [ "$CI" ]; then export ES_TPL=elasticsearch.ci.yml; fi
+  bash -c "$0" "$@"
+- '{{cmd}}'
+- '{{name}}'

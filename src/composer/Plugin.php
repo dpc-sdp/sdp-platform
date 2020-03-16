@@ -56,37 +56,48 @@ class Plugin implements PluginInterface, EventSubscriberInterface {
    *   The event from Composer that called this function.
    */
   public function addPlatformFiles(Event $event) {
+    if (getenv('SDP_ANSIBLE_UPGRADE')) {
+      $baseDir = dirname(Factory::getComposerFile());
+      $directoriesToCopy = [
+        '.' => [
+          '.ahoy.yml' => []
+        ],
+        '.circleci' => [
+          'config.yml' => [],
+          'export-config.sh' => [],
+        ],
+        'scripts' => [
+          'export-config.sh' => [],
+        ],
+        'scripts/drupal' => [
+          'backup.sh' => ['%%PROJECT_NAME%%' => 'PROJECT_NAME'],
+        ],
+      ];
 
-    $baseDir = dirname(Factory::getComposerFile());
-    $directoriesToCopy = [
-      'scripts/drupal' => [
-        'backup.sh' => ['%%PROJECT_NAME%%' => 'PROJECT_NAME'],
-      ],
-    ];
+      foreach ($directoriesToCopy as $directoryToCopy => $filesToCopy) {
+        foreach ($filesToCopy as $fileToCopy => $replacements) {
+          $source = __DIR__ . '/../../assets/' . $directoryToCopy . '/' . $fileToCopy;
+          $target = $baseDir . '/' . $directoryToCopy . '/' . $fileToCopy;
 
-    foreach ($directoriesToCopy as $directoryToCopy => $filesToCopy) {
-      foreach ($filesToCopy as $fileToCopy => $replacements) {
-        $source = __DIR__ . '/../../assets/' . $directoryToCopy . '/' . $fileToCopy;
-        $target = $baseDir . '/' . $directoryToCopy . '/' . $fileToCopy;
-
-        $fileContents = file_get_contents($source);
-        if (!empty($replacements)) {
-          foreach ($replacements as $search => $replaceName) {
-            $replaceValue = getenv($replaceName);
-            if (empty($replaceValue)) {
-              print "Cannot find an environment variable for $replaceName\n";
-            }
-            else {
-              print "Replacing $search with $replaceValue in $target\n";
-              $fileContents = preg_replace("/$search/", $replaceValue, $fileContents);
+          $fileContents = file_get_contents($source);
+          if (!empty($replacements)) {
+            foreach ($replacements as $search => $replaceName) {
+              $replaceValue = getenv($replaceName);
+              if (empty($replaceValue)) {
+                print "Cannot find an environment variable for $replaceName\n";
+              }
+              else {
+                print "Replacing $search with $replaceValue in $target\n";
+                $fileContents = preg_replace("/$search/", $replaceValue, $fileContents);
+              }
             }
           }
+          print "Copying $source to $target\n";
+          file_put_contents($target, $fileContents);
+          chmod($target, 0755);
         }
-        print "Copying $source to $target\n";
-        file_put_contents($target, $fileContents);
       }
     }
-
   }
 
 }
