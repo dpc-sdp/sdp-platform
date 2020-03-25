@@ -23,7 +23,6 @@ aliases:
       - attach_workspace:
           at: /workspace
       - checkout
-      - run: ./dev-tools.sh
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
@@ -65,7 +64,6 @@ aliases:
           at: /workspace
       - checkout
       - *step_configure_git
-      - run: ./dev-tools.sh
       - setup_remote_docker:
           docker_layer_caching: true
       - add_ssh_keys:
