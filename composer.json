@@ -3,7 +3,6 @@
   "description": "Platform specific files for lagoon, CI and local builds",
   "type": "composer-plugin",
   "license": "GPL-2.0+",
-  "version": "0.0.1",
   "require": {
     "composer-plugin-api": "^1.1",
     "composer/composer": "^1.8"
