@@ -20,6 +20,7 @@ ahoy export-config
 # This is correct for CircleCI environments but when testing locally the
 # correct path for the destination is `./config`.
 # @TODO Set the destination directory to a variable.
+rm /app/config/sync/*
 docker cp $(docker-compose ps -q cli):/app/config/sync /app/config
 
 git status
