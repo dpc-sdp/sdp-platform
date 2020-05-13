@@ -1,0 +1,150 @@
+# Docker Compose configuration file.
+#
+# - Using a single file to work in local, CI and production environments.
+# - Local overrides are possible using docker-composer.override.yml file.
+# - Use inline comments starting with ### to have the line removed in CI.
+version: '2.3'
+
+x-bay-image-version:
+  &bay-image-version ${BAY_IMAGE_VERSION:-latest}
+
+x-project:
+  &project ${PROJECT_NAME:-mysite}
+
+x-volumes:
+  &default-volumes
+  # Understanding host mounting in Docker-based projects.
+  #
+  # To share application code between services (containers), Docker uses volumes.
+  # When used in non-development environments, containers have access to
+  # the same shared files using volumes and these volumes do not need to be
+  # mounted from the host. But for development environment, when the code
+  # constantly changes on the host, we need to have these changes synchronized
+  # into all containers. Since we are using single `docker-compose.yml` file for
+  # all environments, we have to accommodate both cases, so we are specifying an
+  # override for the same directory as a mounted volume as a commented-out lines,
+  # which will be automatically uncommented in CI.
+  #
+  # See Docker Compose reference about volumes https://docs.docker.com/compose/compose-file/compose-file-v2/#volume-configuration-reference
+  volumes:
+    - .:/app:${VOLUME_FLAGS:-delegated} ### Local overrides to mount host filesystem. Automatically removed in CI and PROD.
+    - ./docroot/sites/default/files:/app/docroot/sites/default/files:${VOLUME_FLAGS:-delegated} ### Local overrides to mount host filesystem. Automatically removed in CI and PROD.
+    ##- app:/app
+    ##- files:/app/docroot/sites/default/files
+
+x-environment:
+  &default-environment
+  LAGOON_PROJECT: *project
+  # Local dev URL populated from the environment. Do not override here. Instead,
+  # specify the value in .env file.
+  LAGOON_LOCALDEV_URL: ${LOCALDEV_URL:-http://mysite.docker.amazee.io}
+  LAGOON_ROUTE: ${LOCALDEV_URL:-http://mysite.docker.amazee.io}
+  GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+  BAY_KEY: ${BAY_KEY:-}
+  BAY_IMAGE_VERSION: ${BAY_IMAGE_VERSION:-latest}
+  LAGOON_ENVIRONMENT_TYPE: ${LAGOON_ENVIRONMENT_TYPE:-local}
+  DRUPAL_REFRESH_SEARCHAPI: ${DRUPAL_REFRESH_SEARCHAPI:-}
+  # Uncomment to enable Xdebug and then restart via `ahoy up`.
+  #XDEBUG_ENABLE: "true"
+
+services:
+
+  cli:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile.cli
+      args:
+        COMPOSER: ${COMPOSER:-composer.json}
+        BAY_IMAGE_VERSION: *bay-image-version
+    image: *project
+    environment:
+      << : *default-environment
+    << : *default-volumes
+    volumes_from: ### Local overrides to mount host SSH keys. Automatically removed in CI.
+      - container:amazeeio-ssh-agent ### Local overrides to mount host SSH keys. Automatically removed in CI.
+    labels:
+      lagoon.type: cli-persistent
+      lagoon.persistent: /app/docroot/sites/default/files/
+      lagoon.persistent.name: nginx-php
+
+  nginx:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile.nginx-drupal
+      args:
+        CLI_IMAGE: *project
+        BAY_IMAGE_VERSION: *bay-image-version
+    << : *default-volumes
+    environment:
+      << : *default-environment
+    depends_on:
+      - cli
+    networks:
+      - amazeeio-network
+      - default
+    labels:
+      lagoon.type: nginx-php-persistent
+      lagoon.persistent: /app/docroot/sites/default/files/
+      lagoon.persistent.class: slow
+      lagoon.name: nginx-php
+    expose:
+    - "8080"
+  php:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile.php
+      args:
+        CLI_IMAGE: *project
+        BAY_IMAGE_VERSION: *bay-image-version
+    environment:
+      << : *default-environment
+    << : *default-volumes
+    depends_on:
+      - cli
+    labels:
+      lagoon.type: nginx-php-persistent
+      lagoon.persistent: /app/docroot/sites/default/files/
+      lagoon.persistent.class: slow
+      lagoon.name: nginx-php
+
+  mariadb:
+    image: amazeeio/mariadb-drupal
+    environment:
+      << : *default-environment
+    ports:
+    - "3306" # Find port on host with `ahoy info` or `docker-compose port mariadb 3306`
+    labels:
+      lagoon.type: mariadb-shared
+
+  redis:
+    image: amazeeio/redis
+    labels:
+      lagoon.type: redis
+
+  elasticsearch:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile.elasticsearch
+      args:
+      - ES_TPL=${ES_TPL:-elasticsearch.yml}
+    labels:
+      lagoon.type: none
+
+  chrome:
+    image: selenium/standalone-chrome
+    shm_size: '1gb'
+    environment:
+      << : *default-environment
+    << : *default-volumes
+    depends_on:
+      - cli
+    labels:
+      lagoon.type: none
+
+networks:
+  amazeeio-network:
+    external: true
+
+volumes:
+  app: {}
+  files: {}
