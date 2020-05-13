@@ -60,17 +60,44 @@ class Plugin implements PluginInterface, EventSubscriberInterface {
       $baseDir = dirname(Factory::getComposerFile());
       $directoriesToCopy = [
         '.' => [
-          '.ahoy.yml' => []
+          '.ahoy.yml' => [],
+          '.dockerignore' => [],
+          '.editorconfig' => [],
+          'Brewfile' => [],
+          'behat.yml' => ['%%DRUPAL_MODULE_PREFIX%%' => 'DRUPAL_MODULE_PREFIX'],
+          'docker-compose.yml' => [],
+          'phpcs.xml' => [],
+          'xdebug.sh' => [],
         ],
         '.circleci' => [
+          'build.sh' => [],
           'config.yml' => [],
           'export-config.sh' => [],
+          'mirror.sh' => [],
+          'test.sh' => [],
+          'test-artifacts.sh' => [],
+        ],
+        '.docker' => [
+          'Dockerfile.cli' => ['%%DRUPAL_MODULE_PREFIX%%' => 'DRUPAL_MODULE_PREFIX'],
+          'Dockerfile.elasticsearch' => [],
+          'Dockerfile.nginx-drupal' => [],
+          'Dockerfile.php' => [],
+          'elasticsearch.ci.yml' => [],
+          'elasticsearch.yml' => [],
+          'global_redirects.conf' => [],
         ],
         'scripts' => [
           'export-config.sh' => [],
         ],
         'scripts/drupal' => [
           'backup.sh' => ['%%PROJECT_NAME%%' => 'PROJECT_NAME'],
+        ],
+        'tests/behat/bootstrap' => [
+          'FeatureContext.php' => [],
+          'TideCommonTrait.php' => [],
+        ],
+        'tests/behat/features' => [
+          'homepage.feature' => [],
         ],
       ];
 
