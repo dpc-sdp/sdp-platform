@@ -85,16 +85,6 @@ jobs:
   build:
     <<: *job-build
 
-  build-install:
-    <<: *job-build
-    docker:
-      - image: *builder-image
-        environment:
-          SSH_KEY_FINGERPRINT: *ssh_key_fingerprint
-          LAGOON_ENVIRONMENT_TYPE: ci
-          INSTALL_NEW_SITE: 1
-          BEHAT_PROFILE: "--profile=tide"
-
 workflows:
   version: 2
   main:
@@ -103,10 +93,6 @@ workflows:
           filters:
             branches:
               only: /^automation\/.*/
-      - build-install:
-          filters:
-            branches:
-              ignore: /api|api\-edge|^automation\/.*/
       - build:
           filters:
             branches:
