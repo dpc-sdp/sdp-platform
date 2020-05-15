@@ -91,6 +91,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface {
         ],
         'scripts/drupal' => [
           'backup.sh' => ['%%PROJECT_NAME%%' => 'PROJECT_NAME'],
+          'deploy.sh' => [],
         ],
         'tests/behat/bootstrap' => [
           'FeatureContext.php' => [],
