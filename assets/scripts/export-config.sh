@@ -11,7 +11,8 @@
 
 echo "==> Enabling SDP required modules"
 # TODO: Make this configurable
-drush en tide_alert tide_publication baywatch -y
+drush en tide_publication baywatch -y
+drush en tide_alert -y
 
 echo "==> Running database updates"
 # Use this command to debug during the build process
