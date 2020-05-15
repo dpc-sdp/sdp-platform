@@ -11,9 +11,7 @@ drush entup -y
 echo "==> Importing Drupal configuration"
 drush cim -y
 drush cr -y
-# the php-script below will be deleted after next release.
-echo "==> Importing Recommendation - Family Violence content from the old site data."
-drush php-script scripts/drupal/recommendations_import_data.php
+
 if [[ -z "$PERSIST_DB" ]]; then
     echo "==> Importing site-specific default content"
     drush php-eval "\$prefix = getenv('DRUPAL_MODULE_PREFIX'); module_load_install(\$prefix . '_core'); \$func = \$prefix . '_core_default_content_modules'; \$func();"
