@@ -77,6 +77,9 @@ class Plugin implements PluginInterface, EventSubscriberInterface {
           'test.sh' => [],
           'test-artifacts.sh' => [],
         ],
+        'drush' => [
+          'aliases.drushrc.php' => [],
+        ],
         '.docker' => [
           'Dockerfile.cli' => ['%%DRUPAL_MODULE_PREFIX%%' => 'DRUPAL_MODULE_PREFIX'],
           'Dockerfile.elasticsearch' => [],
