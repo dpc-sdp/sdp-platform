@@ -3,6 +3,9 @@
 # Build site in CI.
 #
 set -e
+CURRENT_GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+RELEASE_GIT_BRANCH="$(CURRENT_GIT_BRANCH/automation/release/)"
+git checkout -b "$RELEASE_GIT_BRANCH"
 
 echo "==> Validate composer configuration"
 composer validate --ansi --strict --no-check-all --no-check-lock
@@ -23,10 +26,6 @@ ahoy export-config
 rm /app/config/sync/*
 docker cp $(docker-compose ps -q cli):/app/config/sync /app/config
 
-git status
-CURRENT_GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-RELEASE_GIT_BRANCH=$(echo $CURRENT_GIT_BRANCH | sed 's/automation/release/')
-git checkout -b $RELEASE_GIT_BRANCH
 git add config/sync
 git commit -m "Automated config export"
-git push origin --set-upstream $RELEASE_GIT_BRANCH
+git push origin "$RELEASE_GIT_BRANCH"
