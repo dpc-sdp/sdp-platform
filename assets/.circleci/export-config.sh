@@ -3,8 +3,8 @@
 # Build site in CI.
 #
 set -e
-CURRENT_GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-RELEASE_GIT_BRANCH=$(CURRENT_GIT_BRANCH//automation/release/)
+CURRENT_GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+RELEASE_GIT_BRANCH="${CURRENT_GIT_BRANCH//automation/release}"
 git checkout -b "$RELEASE_GIT_BRANCH"
 
 echo "==> Validate composer configuration"
