@@ -150,6 +150,8 @@ services:
       lagoon.type: redis
 
   elasticsearch:
+    environment:
+      - discovery.type=single-node
     build:
       context: .
       dockerfile: .docker/Dockerfile.elasticsearch
