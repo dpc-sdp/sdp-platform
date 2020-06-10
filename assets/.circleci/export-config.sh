@@ -28,4 +28,4 @@ docker cp $(docker-compose ps -q cli):/app/config/sync /app/config
 
 git add config/sync
 git commit -m "Automated config export"
-git push origin "$RELEASE_GIT_BRANCH"
+git push origin --force "$RELEASE_GIT_BRANCH"
