@@ -1,22 +1,19 @@
 default:
   autoload: [ '%paths.base%/tests/behat/bootstrap' ]
   gherkin:
-    # Disable caching during development. It is enabled for profiles below.
-    cache: ~
     filters:
-      tags: "~@suggest&&~@skipped"
+      # Allow skipping tests by tagging them with "@skipped"
+      tags: "~@skipped"
   suites:
     default:
-      paths: [ '%paths.base%/tests/behat/features' ]
+      paths:
+      - '%paths.base%/tests/behat/features'
       contexts:
       - FeatureContext
       - Drupal\DrupalExtension\Context\MinkContext
       - Drupal\DrupalExtension\Context\MarkupContext
       - Drupal\DrupalExtension\Context\MessageContext
       - IntegratedExperts\BehatScreenshotExtension\Context\ScreenshotContext
-      - IntegratedExperts\BehatRelativityExtension\Context\RelativityContext
-      - Ubirak\RestApiBehatExtension\RestApiContext
-      - Ubirak\RestApiBehatExtension\Json\JsonContext
 
   extensions:
     Behat\MinkExtension:
@@ -60,40 +57,24 @@ default:
         footer_fifth: '.region-footer-fifth'
         footer_sixth: '.region-footer-sixth'
         splash: '.region-splash'
-
+        disabled: '.region-disabled'
     # Allows to capture HTML and JPG screenshots (based on the driver used).
     IntegratedExperts\BehatScreenshotExtension:
       dir: '%paths.base%/screenshots'
       fail: true
       purge: false
-    IntegratedExperts\BehatRelativityExtension:
-      breakpoints:
-        mobile:
-          width: 320
-          height: 480
-        tablet:
-          width: 768
-          height: 1024
-        desktop:
-          width: 1024
-          height: 1024
-          default: true
-      # Vertical offset - document will be scrolled to the element with this offset.
-      # Useful when fixed elements may cover part of pages making it impossible to click on components.
-      offset: 60
-      # List of site-wide components.
-      components:
-        'header-container': ".header-container"
-        'page': ".layout-container"
-        'header': "header"
-        'main': "main"
-        'footer': "footer"
-    Ubirak\RestApiBehatExtension\Extension:
-      rest:
-        base_url: http://nginx:8080
-        store_response: true
+    # Show explicit fail information and continue the test run.
+    IntegratedExperts\BehatFormatProgressFail\FormatExtension: ~
 
-suggest:
+p0:
   gherkin:
     filters:
-      tags: "~@nosuggest&&~@skipped"
+      tags: "@p0&&~@skipped"
+p1:
+  gherkin:
+    filters:
+      tags: "@p1&&~@skipped"
+tide:
+  gherkin:
+    filters:
+      tags: "~@%%DRUPAL_MODULE_PREFIX%%&&~@skipped"
