@@ -64,7 +64,6 @@ class Plugin implements PluginInterface, EventSubscriberInterface {
           '.dockerignore' => [],
           '.editorconfig' => [],
           'Brewfile' => [],
-          'behat.yml' => ['%%DRUPAL_MODULE_PREFIX%%' => 'DRUPAL_MODULE_PREFIX'],
           'docker-compose.yml' => [],
           'phpcs.xml' => [],
           'xdebug.sh' => [],
@@ -99,9 +98,6 @@ class Plugin implements PluginInterface, EventSubscriberInterface {
         'tests/behat/bootstrap' => [
           'FeatureContext.php' => [],
           'TideCommonTrait.php' => [],
-        ],
-        'tests/behat/features' => [
-          'homepage.feature' => [],
         ],
       ];
 
