@@ -79,15 +79,6 @@ class Plugin implements PluginInterface, EventSubscriberInterface {
         'drush' => [
           'aliases.drushrc.php' => [],
         ],
-        '.docker' => [
-          'Dockerfile.cli' => ['%%DRUPAL_MODULE_PREFIX%%' => 'DRUPAL_MODULE_PREFIX'],
-          'Dockerfile.elasticsearch' => [],
-          'Dockerfile.nginx-drupal' => [],
-          'Dockerfile.php' => [],
-          'elasticsearch.ci.yml' => [],
-          'elasticsearch.yml' => [],
-          'global_redirects.conf' => [],
-        ],
         'scripts' => [
           'export-config.sh' => [],
         ],
