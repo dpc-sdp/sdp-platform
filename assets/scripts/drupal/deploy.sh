@@ -13,8 +13,6 @@ drush cim -y
 drush cr -y
 
 if [[ -z "$PERSIST_DB" ]]; then
-    echo "==> Importing site-specific default content"
-    drush php-eval "\$prefix = getenv('DRUPAL_MODULE_PREFIX'); module_load_install(\$prefix . '_core'); \$func = \$prefix . '_core_default_content_modules'; \$func();"
     echo "==> Enabling site-specific modules"
     drush php-eval "\$prefix = getenv('DRUPAL_MODULE_PREFIX'); module_load_install(\$prefix . '_core'); \$func = \$prefix . '_core_enable_modules'; \$func();"
 fi
