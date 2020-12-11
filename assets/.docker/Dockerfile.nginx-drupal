@@ -1,9 +1,9 @@
 # @see https://github.com/dpc-sdp/bay/blob/master/bay/images/Dockerfile.nginx
-ARG BAY_IMAGE_VERSION=latest
+ARG BAY_IMAGE_VERSION
 ARG CLI_IMAGE
 FROM ${CLI_IMAGE:-cli} as cli
 
-FROM singledigital/bay-nginx:${BAY_IMAGE_VERSION}
+FROM singledigital/bay-nginx:${BAY_IMAGE_VERSION:-latest}
 
 ENV WEBROOT=docroot
 
