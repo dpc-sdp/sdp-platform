@@ -9,7 +9,7 @@ commands:
       && if [ "$COMPOSER" != "composer.json" ]; then ahoy composer-merge; fi \
       && if [ "$COMPOSER" != "composer.json" ]; then ahoy link-package; fi \
       && (docker network prune -f > /dev/null && docker network inspect amazeeio-network > /dev/null || docker network create amazeeio-network) \
-      && ahoy up -- --build --force-recreate \
+      && ahoy up -- --build --force-recreate --remove-orphans \
       && ahoy install-dev \
       && if [ "$COMPOSER" != "composer.json" ] && [ "$DRUPAL_PROFILE" ]; then ahoy init-profile; fi \
       && ahoy install-site \
@@ -23,7 +23,7 @@ commands:
     cmd: |
       ahoy clean \
       && (docker network prune -f > /dev/null && docker network inspect amazeeio-network > /dev/null || docker network create amazeeio-network) \
-      && ahoy up -- --build --force-recreate \
+      && ahoy up -- --build --force-recreate --remove-orphans \
       && ahoy install-dev \
       && ahoy cli scripts/export-config.sh \
       && ahoy line "Config export complete"
@@ -87,11 +87,11 @@ commands:
 
   cli:
     usage: Start a shell inside CLI container or run a command.
-    cmd: if \[ "$@" \]; then docker exec -i $(docker-compose ps -q cli) bash -c "$@"; else docker exec -it $(docker-compose ps -q cli) bash; fi
+    cmd: if \[ "$@" \]; then docker-compose exec cli bash -c "$@"; else docker-compose exec cli bash; fi
 
   drush:
     usage: Run drush commands in the CLI service container.
-    cmd: docker exec -i $(docker-compose ps -q cli) drush -r ${APP}/${WEBROOT} -l ${LOCALDEV_URL} "$@"
+    cmd: docker-compose exec -T cli drush -r ${APP}/${WEBROOT} -l ${LOCALDEV_URL} "$@"
 
   login:
     usage: Login to a website.
@@ -182,7 +182,7 @@ commands:
 
   flush-redis:
     usage: Flush Redis cache.
-    cmd: docker exec -i $(docker-compose ps -q redis) redis-cli flushall > /dev/null
+    cmd: docker-compose exec -T redis redis-cli flushall > /dev/null
 
   set-dev-tools-commit:
     usage: Specify a commit of Dev-Tools to downloaded and commit the result.
