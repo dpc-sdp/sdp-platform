@@ -1,3 +1,7 @@
+# PROJECT DEPRECATED
+
+## See https://github.com/dpc-sdp/sdp-ansible-upgrade
+
 # sdp-platform
 
 Manage platform dependencies for SDP projects
