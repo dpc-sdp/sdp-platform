@@ -2,11 +2,8 @@ ARG BAY_IMAGE_VERSION=latest
 
 # @see https://github.com/dpc-sdp/bay/blob/master/bay/images/Dockerfile.php
 FROM singledigital/bay-cli:${BAY_IMAGE_VERSION}
-ARG COMPOSER
 
-ENV MYSQL_HOST=mariadb \
-    COMPOSER=${COMPOSER:-composer.json} \
-    DRUPAL_MODULE_PREFIX=%%DRUPAL_MODULE_PREFIX%%
+ENV DRUPAL_MODULE_PREFIX=%%DRUPAL_MODULE_PREFIX%%
 
 ADD patches /app/patches
 ADD scripts /app/scripts
@@ -14,8 +11,7 @@ ADD dpc-sdp /app/dpc-sdp
 
 COPY composer.json composer.lock auth.json .env /app/
 
-RUN echo "memory_limit=-1" >> /usr/local/etc/php/conf.d/memory.ini \
-    && composer install -n --no-dev --ansi --prefer-dist --no-suggest --optimize-autoloader \
-    && rm -rf /usr/local/etc/php/conf.d/memory.ini
+ENV COMPOSER_MEMORY_LIMIT=-1
+RUN composer install -n --no-dev --ansi --prefer-dist --no-suggest --optimize-autoloader && composer clearcache
 
 COPY . /app
