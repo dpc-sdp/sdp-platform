@@ -133,6 +133,11 @@ services:
     labels:
       lagoon.type: none
 
+  clamav:
+    image: singledigital/bay-clamav:${BAY_IMAGE_VERSION:2.x}
+    labels:
+      lagoon.type: none
+
   chrome:
     image: selenium/standalone-chrome
     shm_size: '1gb'
