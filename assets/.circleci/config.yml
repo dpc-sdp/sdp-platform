@@ -15,7 +15,7 @@ aliases:
   - &job-build
     working_directory: &working-directory /app
     docker:
-      - image: &builder-image integratedexperts/ci-builder
+      - image: &builder-image singledigital/bay-ci-builder
         environment:
           SSH_KEY_FINGERPRINT: *ssh_key_fingerprint
           LAGOON_ENVIRONMENT_TYPE: ci
